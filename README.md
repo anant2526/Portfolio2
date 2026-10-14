@@ -10,7 +10,8 @@ An interactive 3D portfolio where visitors can **talk to an AI version of you**.
 - **AI twin.** Claude answers questions about you, in your style, using only what you've written about yourself. It says "I don't know" instead of inventing things.
 - **Your voice.** ElevenLabs voice cloning reads each answer aloud. Sentences start playing while Claude is still writing the rest.
 - **Real lip-sync.** ElevenLabs returns per-character timestamps. Those become mouth shapes (visemes), blended with live audio loudness, so the mouth hits every syllable.
-- **3D avatar.** A procedural holographic bust works out of the box, no model needed. It follows your cursor, blinks, and its jaw and lips move as it speaks. You can drop in your own `.glb` avatar instead.
+- **3D avatar of you.** The **Twin Studio** turns one photo of you into a 3D face mesh with your real proportions. It's textured with your photo and rigged so the jaw, lips and eyelids move. Until you scan, a procedural holographic bust stands in. A full-head `.glb` model also works.
+- **Twin Studio** (`localhost:3000/studio`). Scan your face and record a few prompts to clone your voice, all from the browser.
 - **Voice input.** Hold a conversation by mic (Chrome, Edge, Safari) or by text. Speaking interrupts the twin.
 - **The rest of the portfolio:**
   - terminal boot sequence
@@ -50,6 +51,42 @@ Tips for a twin that really sounds like you:
 - Write FAQ answers exactly how you'd say them out loud.
 - Be specific in `knowledge.ts`. "I love music" is weak. "I've been playing tabla since I was 9 and I code to lo-fi" is what makes it feel like you.
 
+## The Twin Studio: your face and your voice
+
+Run `npm run dev` and open **[localhost:3000/studio](http://localhost:3000/studio)**. The studio is local-only: its pages and APIs don't exist in production builds.
+
+### Your face
+
+1. Click **Upload photo** (or **Use webcam**) and pick a photo of yourself.
+2. The scan runs entirely in your browser:
+   - MediaPipe finds 468 3D landmarks on your face. In full-body photos it also searches smaller crops of the image.
+   - The landmarks are rotated to face the camera, keeping your proportions.
+   - The photo becomes the texture.
+3. Check the 3D preview, then click **Mouth test** or **Test lip-sync** to see it talk.
+4. Click **Save as my avatar**. This writes `public/avatar/face.json`, `public/avatar/face.jpg` and `src/content/avatar.json`, and the homepage switches to your face immediately.
+5. To put it on your live site, **commit those files.** **Reset to hologram** undoes it.
+
+**Getting a good scan**
+
+- Use a straight-on, well-lit close-up (a selfie at arm's length is ideal).
+- Your face should be at least ~300px wide. Full-body shots work, but come out blurrier.
+- Keep your mouth closed or smile softly.
+- Glasses are fine; the twin will wear them. Dark lenses hide your eyes and blinks.
+
+One photo captures your **face** (forehead to chin, ear to ear). Your hair and the back of your head stay holographic. For a full-head, photo-real avatar, make a `.glb` (see below).
+
+### Your voice
+
+1. Paste your ElevenLabs API key. It's saved only to your local `.env.local`.
+2. Record the four prompts, aiming for 1–3 minutes in total:
+   - three short scripts with different moods;
+   - a free-talk segment, which teaches the clone your natural rhythm.
+
+   You can also upload existing voice recordings.
+3. Tick the consent box and click **Clone my voice**. The studio calls ElevenLabs Instant Voice Cloning and writes `ELEVENLABS_VOICE_ID` (and your key) to `.env.local`. The twin speaks in your voice right away. Click **Hear my twin** to check.
+4. Your free-talk segment is transcribed into `src/content/speech-samples.json`. The twin's persona studies it, so it also copies **how you phrase things**, not just how you sound.
+5. For the deployed site, add `ELEVENLABS_API_KEY` and `ELEVENLABS_VOICE_ID` to your host's environment variables.
+
 ## 1. Give it a brain (Claude)
 
 1. Create an API key at [console.anthropic.com](https://console.anthropic.com).
@@ -61,7 +98,9 @@ Tips for a twin that really sounds like you:
 
 The twin uses `claude-opus-5-5` with low effort, which keeps spoken replies fast. You can override this with `ANTHROPIC_MODEL` / `ANTHROPIC_EFFORT`. The system prompt is built from your profile in [`src/lib/persona.ts`](src/lib/persona.ts) and is prompt-cached. Server-side refusal fallbacks are enabled.
 
-## 2. Clone your voice (ElevenLabs)
+## 2. Clone your voice manually (ElevenLabs)
+
+The Studio's voice lab (above) does all of this for you. To do it by hand on the ElevenLabs website instead:
 
 1. Sign up at [elevenlabs.io](https://elevenlabs.io). Voice cloning is a paid-plan feature, so check their current pricing.
 2. Go to **Voices → Add a new voice → Instant Voice Clone**. Upload 1–3 minutes of **clean** audio of yourself:
@@ -84,9 +123,9 @@ If the voice isn't configured, or a request fails, the site falls back to the br
 
 > Only clone **your own** voice. ElevenLabs requires that you have the rights to it.
 
-## 3. Your own 3D avatar (optional)
+## 3. Full-head 3D model (optional)
 
-The holographic head is the default and needs nothing. To use a 3D model of **you**:
+The Studio face scan covers most people. If you want a complete, photo-real head and body instead, use a `.glb` model. It takes priority over the scan.
 
 1. Make a `.glb` avatar with face blendshapes. Good options in 2026:
    - [**Avaturn**](https://avaturn.me): realistic avatar from a few selfies, GLB export.
@@ -139,19 +178,25 @@ src/
 ├── app/
 │   ├── api/chat/route.ts     Claude streaming endpoint (+ demo mode)
 │   ├── api/tts/route.ts      ElevenLabs proxy with timestamps
+│   ├── api/studio/…          local-only: face save, voice cloning, speech samples
+│   ├── studio/page.tsx       Twin Studio (local-only)
 │   ├── layout.tsx            fonts, metadata
 │   └── page.tsx              sections
 ├── content/                  ← edit these
 │   ├── profile.ts
-│   └── knowledge.ts
+│   ├── knowledge.ts
+│   ├── avatar.json           written by the Studio (your face scan)
+│   └── speech-samples.json   written by the Studio (how you talk)
 ├── components/
-│   ├── three/                avatar stage, holo head, GLB loader, particles, rings
+│   ├── three/                avatar stage, holo head (+ scanned face), GLB loader, particles, rings
+│   ├── studio/               Twin Studio UI: face scan + voice lab
 │   ├── twin/                 TwinProvider (chat + voice state), TwinRoom overlay, launcher
 │   ├── sections/             Hero, About, Skills, Work, Journey, Contact
 │   └── ui/                   cursor, nav, boot loader, smooth scroll, scramble, magnetic
 └── lib/
     ├── persona.ts            builds the twin's system prompt
-    ├── voice/                speech engine, viseme mapping, chunker, speech recognition
+    ├── face/                 photo → 3D face (MediaPipe scan, alignment, rig)
+    ├── voice/                speech engine, viseme mapping, chunker, speech recognition, WAV export
     └── …
 ```
 

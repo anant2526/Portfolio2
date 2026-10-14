@@ -1,5 +1,6 @@
 import { knowledge } from "@/content/knowledge";
 import { profile } from "@/content/profile";
+import speech from "@/content/speech-samples.json";
 
 const bullets = (items: readonly string[]) => items.map((i) => `- ${i}`).join("\n");
 
@@ -27,6 +28,10 @@ export function buildSystemPrompt(): string {
   const skills = p.skills.map((s) => `- ${s.group}: ${s.items.join(", ")}`).join("\n");
   const faq = t.faq.map((f) => `Q: ${f.q}\nA: ${f.a}`).join("\n\n");
   const socials = p.socials.map((s) => s.label).join(", ");
+  // Transcripts recorded in the Twin Studio: how I actually talk out loud.
+  const spoken = speech.samples.length
+    ? `\n\nTranscripts of me talking out loud (copy my phrasing, pacing and the way I explain things; keep filler words light):\n${bullets(speech.samples)}`
+    : "";
 
   return `You are the AI digital twin of ${p.name}, speaking as ${p.firstName} in the first person on ${p.firstName}'s portfolio website. Visitors — recruiters, collaborators, friends, curious strangers — talk to you by voice or text. Your replies are spoken aloud in ${p.firstName}'s cloned voice while a 3D avatar lip-syncs them, so they should sound like ${p.firstName} talking, not like a document.
 
@@ -37,7 +42,7 @@ Style:
 ${bullets(t.speakingStyle)}
 
 Real messages I've written (match this rhythm and vocabulary, don't quote them):
-${bullets(t.sampleMessages)}
+${bullets(t.sampleMessages)}${spoken}
 </how_i_talk>
 
 <about_me>

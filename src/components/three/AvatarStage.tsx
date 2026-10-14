@@ -5,12 +5,17 @@ import { Canvas, useThree } from "@react-three/fiber";
 import { Bloom, ChromaticAberration, EffectComposer, Noise, Vignette } from "@react-three/postprocessing";
 import { Component, Suspense, useEffect, type ReactNode } from "react";
 import * as THREE from "three";
+import avatarConfig from "@/content/avatar.json";
 import { profile } from "@/content/profile";
+import type { AvatarConfig } from "@/lib/face/types";
 import { installPointerTracking } from "@/lib/pointer";
 import HaloRings from "./HaloRings";
-import HoloHead from "./HoloHead";
+import HoloHead, { type LoadedFace } from "./HoloHead";
 import ModelAvatar from "./ModelAvatar";
 import Particles from "./Particles";
+import ScannedHead from "./ScannedHead";
+
+const savedAvatar = avatarConfig as AvatarConfig;
 
 class AvatarErrorBoundary extends Component<{ fallback: ReactNode; children: ReactNode }, { failed: boolean }> {
   state = { failed: false };
@@ -25,9 +30,27 @@ class AvatarErrorBoundary extends Component<{ fallback: ReactNode; children: Rea
   }
 }
 
-function Avatar({ y }: { y: number }) {
+/**
+ * Picks the avatar, in order of preference:
+ *  1. a GLB model (profile.avatar.modelUrl)
+ *  2. your scanned face from the Twin Studio (src/content/avatar.json)
+ *  3. the built-in holographic head
+ */
+function Avatar({ y, previewFace }: { y: number; previewFace?: LoadedFace | null }) {
   const holo = <HoloHead position={[0, y, 0]} />;
+  if (previewFace) return <HoloHead key="preview" position={[0, y, 0]} face={previewFace} />;
   const url = profile.avatar.modelUrl;
+  const scan = savedAvatar.face;
+  if (!url && scan) {
+    const v = `?v=${encodeURIComponent(scan.updatedAt)}`;
+    return (
+      <AvatarErrorBoundary fallback={holo}>
+        <Suspense fallback={holo}>
+          <ScannedHead data={scan.data + v} texture={scan.texture + v} position={[0, y, 0]} />
+        </Suspense>
+      </AvatarErrorBoundary>
+    );
+  }
   if (!url) return holo;
   return (
     <AvatarErrorBoundary fallback={holo}>
@@ -62,9 +85,11 @@ type Props = {
   variant: "hero" | "room";
   /** Pauses rendering entirely when false (offscreen / hidden). */
   active?: boolean;
+  /** Twin Studio: show an unsaved scan instead of the saved avatar. */
+  previewFace?: LoadedFace | null;
 };
 
-export default function AvatarStage({ variant, active = true }: Props) {
+export default function AvatarStage({ variant, active = true, previewFace }: Props) {
   useEffect(() => installPointerTracking(), []);
   const hero = variant === "hero";
   const camZ = hero ? 5.8 : 5.6;
@@ -80,7 +105,7 @@ export default function AvatarStage({ variant, active = true }: Props) {
       <ResponsiveCamera baseZ={camZ} />
       <color attach="background" args={["#08090a"]} />
       <fog attach="fog" args={["#08090a", 7, 16]} />
-      <Avatar y={hero ? 0.25 : 0.05} />
+      <Avatar y={hero ? 0.25 : 0.05} previewFace={previewFace} />
       <HaloRings y={hero ? 0.25 : 0.05} radius={hero ? 1.6 : 1.5} />
       <Particles count={hero ? 1400 : 900} />
       <EffectComposer multisampling={0}>

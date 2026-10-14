@@ -1,7 +1,7 @@
 "use client";
 
 import { useFrame, useThree } from "@react-three/fiber";
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { pointer } from "@/lib/pointer";
 
@@ -71,6 +71,21 @@ export default function Particles({ count = 1200 }: { count?: number }) {
     [gl],
   );
 
+  // Built directly (not via a `uniforms` prop, which R3F copies) so uTime updates reach the GPU.
+  const material = useMemo(
+    () =>
+      new THREE.ShaderMaterial({
+        uniforms,
+        vertexShader: VERT,
+        fragmentShader: FRAG,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    [uniforms],
+  );
+  useEffect(() => () => material.dispose(), [material]);
+
   useFrame((state, dt) => {
     uniforms.uTime.value = state.clock.elapsedTime;
     const p = ref.current;
@@ -80,15 +95,6 @@ export default function Particles({ count = 1200 }: { count?: number }) {
   });
 
   return (
-    <points ref={ref} geometry={geometry}>
-      <shaderMaterial
-        uniforms={uniforms}
-        vertexShader={VERT}
-        fragmentShader={FRAG}
-        transparent
-        depthWrite={false}
-        blending={THREE.AdditiveBlending}
-      />
-    </points>
+    <points ref={ref} geometry={geometry} material={material} />
   );
 }

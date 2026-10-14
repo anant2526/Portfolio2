@@ -104,7 +104,13 @@ function bodyProfile(y: number) {
  * Point cloud arranged as horizontal contour rings — gives the "LIDAR scan"
  * topographic look across the face.
  */
-export function buildContourPoints(quality: number): THREE.BufferGeometry {
+/** Ellipse (in head space) where a scanned face replaces the hologram's own face. */
+export type FaceCut = { cx: number; cy: number; rx: number; ry: number };
+
+const insideCut = (cut: FaceCut | undefined, x: number, y: number, dz: number) =>
+  !!cut && dz > 0.05 && ((x - cut.cx) / cut.rx) ** 2 + ((y - cut.cy) / cut.ry) ** 2 < 1;
+
+export function buildContourPoints(quality: number, cut?: FaceCut): THREE.BufferGeometry {
   const positions: number[] = [];
   const normals: number[] = [];
   const jaws: number[] = [];
@@ -112,6 +118,7 @@ export function buildContourPoints(quality: number): THREE.BufferGeometry {
   const rands: number[] = [];
 
   const push = (s: Sculpted, n: [number, number, number]) => {
+    if (insideCut(cut, s.x, s.y, n[2])) return;
     positions.push(s.x, s.y, s.z);
     normals.push(n[0], n[1], n[2]);
     jaws.push(s.jaw);

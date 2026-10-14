@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 /* Minimal typings for the Web Speech API (not in lib.dom for all TS versions). */
 type RecognitionResult = { isFinal: boolean; 0: { transcript: string } };
 type RecognitionEvent = { resultIndex: number; results: ArrayLike<RecognitionResult> };
-interface Recognition {
+export interface Recognition {
   lang: string;
   continuous: boolean;
   interimResults: boolean;
@@ -18,7 +18,7 @@ interface Recognition {
 }
 type RecognitionCtor = new () => Recognition;
 
-function getCtor(): RecognitionCtor | null {
+export function getCtor(): RecognitionCtor | null {
   if (typeof window === "undefined") return null;
   const w = window as unknown as { SpeechRecognition?: RecognitionCtor; webkitSpeechRecognition?: RecognitionCtor };
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
